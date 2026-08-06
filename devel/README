@@ -1,0 +1,27 @@
+devel/ -- published, but never going to qemu-devel
+==================================================
+
+Patches needed by anyone who builds or modifies sun4v firmware against QEMU, and
+by nobody else. They are published (mirrored to github.com/unix0cc/qemu-experimental
+under devel/) because they are useful to others doing the same work, but they are
+not proposed upstream and are not written to upstream's standards for inclusion.
+
+Contrast with the sibling directories:
+
+  upstream/  posted or intended for qemu-devel; numbered as a series; must stay
+             byte-identical to the published copy
+  devel/     this directory; same byte-identity rule
+  test/      experiment-local, never published, deleted when the experiment ends
+
+The byte-identity rule matters: the published copy is the canonical location of a
+patch, and a local edit that is not mirrored makes the two silently disagree.
+Regenerate SHA256SUMS after editing anything here.
+
+Contents
+--------
+niagara-hvuart-console.patch
+    Models the hypervisor's private console UART at 0xfff0c2c000, an address the
+    machine's own hv MD has always declared (`hvuart` in the root node) and which
+    QEMU did not decode. Required to run a self-built hypervisor at all: such a
+    build hangs on its first PRINT(). Harmless to existing setups -- the stock
+    blob is a non-DEBUG build and writes nothing to the port.

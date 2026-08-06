@@ -1,0 +1,87 @@
+Subject: [LOCAL] hw/sparc64/niagara: model the hypervisor's console UART
+
+Not for qemu-devel. Needed by anyone who builds or modifies sun4v firmware; see
+devel/README.
+
+The niagara machine's own machine description has always declared this device.
+Sun's shipped hv config -- the one this machine has been booting with since the
+beginning -- carries it in the root node of the hv MD:
+
+    hvuart = 0xfff0c2c000
+
+QEMU simply never modelled it, so the address decoded to nothing.
+
+The address is not configurable in practice: the OpenSPARC hypervisor programs
+this UART at the very top of start_master(), before any C code runs and long
+before it parses the MD, from a compile-time constant:
+
+    greatlakes/ontario/src/main.s:107
+        #ifdef CONFIG_HVUART
+            setx    FPGA_UART_BASE, %g2, %g1
+            HVCALL(uart_init)
+        #endif
+
+    greatlakes/ontario/include/platform/fpga.h:63
+        #define FPGA_UART_BASE  (FPGA_BASE + 0xc2c000)
+    greatlakes/common/include/fpga.h:60
+        #define FPGA_BASE       0xfff0000000
+
+so MD and firmware agree on 0xfff0c2c000 by construction. Legion models it --
+T1's 1up.conf has `device "dumbserial" HVUART +0x50` -- and QEMU did not.
+
+Why it went unnoticed: the hypervisor blob normally used here is a non-DEBUG
+build with no diagnostic strings compiled in at all, so it never writes to the
+port. A hypervisor built from source is a different matter -- it hangs on its
+first PRINT(), a `ta 0x13` that never returns, because hprint -> puts polls a
+UART that is not there. That makes this patch a precondition for running
+self-built firmware, not merely a debugging convenience.
+
+Verified harmless for existing setups: with the stock firmware set the port stays
+silent (a second -serial pointed at a file receives zero bytes) and the machine
+boots exactly as before.
+
+This is the same FPGA register window the RTC already lives in
+(NIAGARA_RTC_BASE 0xfff0c1fff8 = FPGA_BASE + 0xc1fff8), so modelling one more
+device in it is consistent with what the machine already does.
+
+Attach it to the second -serial, e.g.
+
+    -serial mon:stdio -serial file:hv-console.log
+
+diff --git a/hw/sparc64/niagara.c b/hw/sparc64/niagara.c
+index ad5e5945a8..cb6e8f5bec 100644
+--- a/hw/sparc64/niagara.c
++++ b/hw/sparc64/niagara.c
+@@ -69,6 +69,19 @@ typedef struct NiagaraBoardState {
+ #define NIAGARA_VDISK_BASE  0x1f40000000ULL
+ #define NIAGARA_RTC_BASE    0xfff0c1fff8ULL
+ 
++/* Hypervisor-private console UART.
++ *
++ * The OpenSPARC hv programs this in start_master() before any C code runs and
++ * long before it parses the MD, from a compile-time constant:
++ *   greatlakes/ontario/src/main.s:107  setx FPGA_UART_BASE, %g2, %g1
++ *   fpga.h: FPGA_UART_BASE = FPGA_BASE + 0xc2c000, FPGA_BASE = 0xfff0000000
++ * so nothing in the guest/hv config can move it.  Legion models it
++ * ("dumbserial" at HVUART in 1up.conf); we did not, so an hv built with
++ * -DCONFIG_HVUART hangs on its first PRINT().  Same FPGA register window the
++ * RTC above already lives in (0xfff0c1fff8 = FPGA_BASE + 0xc1fff8).
++ */
++#define NIAGARA_HV_UART_BASE 0xfff0c2c000ULL
++
+ /* Firmware layout
+  *
+  * |------------------|
+@@ -153,6 +166,12 @@ static void niagara_init(MachineState *machine)
+     }
+     serial_mm_init(sysmem, NIAGARA_UART_BASE, 0, NULL,
+                    115200, serial_hd(0), DEVICE_BIG_ENDIAN);
++    /*
++     * The hv's own debug console, on the second -serial so it does not
++     * interleave with the guest console.  Harmless if none is supplied.
++     */
++    serial_mm_init(sysmem, NIAGARA_HV_UART_BASE, 0, NULL,
++                   115200, serial_hd(1), DEVICE_BIG_ENDIAN);
+     create_unimplemented_device("sun4v-iob", NIAGARA_IOBBASE, NIAGARA_IOBSIZE);
+     sun4v_rtc_init(NIAGARA_RTC_BASE);
+ }
