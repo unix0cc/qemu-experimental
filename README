@@ -17,8 +17,8 @@ lives:
               exposes state that only matters when building or modifying sun4v
               firmware.
 
-Each directory carries a SHA256SUMS covering its patches. A patch here is the
-canonical copy; the working tree it came from mirrors it byte for byte.
+Each directory carries a SHA256SUMS covering its patches. A patch here is
+byte-identical to the working tree it was developed and tested in.
 
 Applying
 --------
