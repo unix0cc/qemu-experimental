@@ -24,7 +24,7 @@ Applying
 --------
 Patches are against qemu.git master and are developed against a fresh clone each
 time, so record the base commit when reporting a result. As of the last update
-the base was b428fe0362.
+the base was 3e3ccab106 (v11.1.0-rc3).
 
     git clone https://gitlab.com/qemu-project/qemu.git
     cd qemu
