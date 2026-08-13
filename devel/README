@@ -17,9 +17,14 @@ The byte-identity rule matters: the published copy is the canonical location of 
 patch, and a local edit that is not mirrored makes the two silently disagree.
 Regenerate SHA256SUMS after editing anything here.
 
+The `0003` prefix (2026-08-13) is a stack-application-order number shared
+across upstream/, devel/ and test/ -- see test/README-vpci-stack -- not a
+qemu-devel series number. Only 0002 is actually posted; this directory is
+never proposed at all, regardless of what its filename says.
+
 Contents
 --------
-niagara-hvuart-console.patch
+0003-niagara-hvuart-console.patch
     Models the hypervisor's private console UART at 0xfff0c2c000, an address the
     machine's own hv MD has always declared (`hvuart` in the root node) and which
     QEMU did not decode. Required to run a self-built hypervisor at all: such a
